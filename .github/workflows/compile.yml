@@ -1,11 +1,39 @@
-name: compile
-on: [push, pull_request, workflow_dispatch]
+name: Build and lint
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
 jobs:
-  arduino:
+  lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/arduino-lint-action@v2
+        with:
+          compliance: strict
+
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        fqbn: ["esp32:esp32:esp32", "esp32:esp32:esp32s2", "esp32:esp32:esp32s3", "esp32:esp32:esp32c3", "esp32:esp32:esp32c6", "esp32:esp32:esp32p4:PSRAM=enabled,USBMode=default,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB"]
     steps:
       - uses: actions/checkout@v4
       - uses: arduino/setup-arduino-cli@v2
-      - run: arduino-cli core update-index
-      - run: arduino-cli core install esp32:esp32@3.3.11
-      - run: arduino-cli compile --fqbn 'esp32:esp32:esp32p4:PSRAM=enabled,USBMode=default,ChipVariant=postv3,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB' --libraries . examples/Preprocess/Preprocess.ino
+      - name: Update package index
+        run: arduino-cli core update-index
+      - name: Install Arduino-ESP32 3.3.12
+        run: arduino-cli core install esp32:esp32@3.3.12
+      - name: Stage library for Arduino CLI
+        shell: bash
+        run: |
+          mkdir -p "$HOME/Arduino/libraries/ESP32-AI"
+          rsync -a --exclude '.git' ./ "$HOME/Arduino/libraries/ESP32-AI/"
+      - name: Compile example
+        shell: bash
+        run: arduino-cli compile --clean --fqbn "${{ matrix.fqbn }}" --libraries "$HOME/Arduino/libraries" "examples/Preprocess/Preprocess.ino"

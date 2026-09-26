@@ -1,32 +1,43 @@
 # ESP32-AI
 
-A small backend-neutral AI adapter layer for ESP32 projects. It does **not** replace TensorFlow Lite Micro, ESP-DL or Edge Impulse. Instead it standardizes the part that repeatedly appears between a camera and an inference engine: image conversion, resizing and backend dispatch.
+Repository: https://github.com/Prince223889/ESP32-AI
 
-## Why this design
+Small backend-neutral preprocessing and inference adapter for Arduino-ESP32.
 
-Current ESP32-P4 projects already have mature runtimes such as Espressif's `esp-tflite-micro` and `esp-dl`. Copying another runtime into an Arduino library would create a large, fragile dependency. This library stays lightweight and lets an application provide its own backend.
+## Why this library does not ship an AI runtime
 
-## Pipeline
+Espressif already provides substantial runtimes such as TensorFlow Lite Micro and ESP-DL. Repacking those runtimes inside a tiny Arduino library would create large and fragile dependencies. `ESP32-AI` therefore provides the glue layer instead:
 
 ```text
-Camera RGB565
-    -> resizeRGB565ToGray()/your own preprocessor
-    -> model input
-    -> IESP32AIBackend::infer()
-    -> ESP32AIResult[]
+camera/frame buffer
+      ↓
+resize / grayscale / RGB conversion
+      ↓
+normalization
+      ↓
+user-selected AI backend
+      ↓
+ESP32AIResult[]
 ```
 
-## Example backend shape
+## Included helpers
 
-```cpp
-class MyBackend : public IESP32AIBackend {
-  bool begin(size_t inputBytes) override { /* load model */ return true; }
-  size_t infer(const uint8_t *input, size_t bytes,
-               ESP32AIResult *results, size_t cap) override {
-    /* call your chosen runtime */
-    return 0;
-  }
-};
-```
+- RGB565 → grayscale
+- RGB565 resize + grayscale
+- RGB565 resize + RGB888
+- uint8 → float normalization
+- uint8 → int8 normalization
+- top-result selection
+- backend interface for your own TFLite Micro / ESP-DL / Edge Impulse adapter
 
-This makes the same application architecture usable with Edge Impulse SDK output, TFLite Micro or ESP-DL without forcing any one vendor into the library.
+## No hidden model
+
+The library does not contain a chicken-disease model, credentials or cloud API. Your application supplies its own backend and model.
+
+## Minimal example
+
+See `examples/Preprocess/Preprocess.ino`.
+
+## License
+
+MIT.
